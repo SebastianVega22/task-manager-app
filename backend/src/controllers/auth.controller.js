@@ -1,22 +1,44 @@
 ﻿import jwt from "jsonwebtoken";
+import createError from "http-errors";
+import User from "../models/User.js";
 
-export async function register(req, res) {
-  const { email, password, username } = req.body || {};
-  if (!email || !password) return res.status(400).json({ message: "email y password son obligatorios" });
-  // Stub: aquí luego crearías el usuario en Mongo (hash, etc.)
-  const token = jwt.sign({ sub: email, role: "user" }, process.env.JWT_SECRET || "dev-secret", { expiresIn: "7d" });
-  return res.json({ token, user: { id: "u_" + Date.now(), email, username: username || email.split("@")[0], role: "user" } });
+const sign = (user) => {
+    const payload = { sub: String(user._id), email: user.email, role: "user" };
+    const secret = process.env.JWT_SECRET || "dev-secret";
+    return jwt.sign(payload, secret, { expiresIn: "7d" });
+};
+
+export async function register(req, res, next) {
+    try {
+        const { email, password, username } = req.body || {};
+        if (!email || !password || !username)
+            throw createError(400, "username, email y password son obligatorios");
+
+        const exists = await User.findOne({ email });
+        if (exists) throw createError(409, "Email ya registrado");
+
+        const user = await User.create({ email, password, username });
+        res.status(201).json({ token: sign(user), user: user.toJSON() });
+    } catch (e) { next(e); }
 }
 
-export async function login(req, res) {
-  const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ message: "email y password son obligatorios" });
-  // Stub: acepta cualquier combinación (dev). En prod: verifica hash.
-  const token = jwt.sign({ sub: email, role: "user" }, process.env.JWT_SECRET || "dev-secret", { expiresIn: "7d" });
-  return res.json({ token, user: { id: "u_1", email, username: "user", role: "user" } });
+export async function login(req, res, next) {
+    try {
+        const { email, password } = req.body || {};
+        if (!email || !password) throw createError(400, "email y password son obligatorios");
+
+        const user = await User.findOne({ email }).select("+password");
+        if (!user || !(await user.comparePassword(password)))
+            throw createError(401, "Credenciales inválidas");
+
+        res.json({ token: sign(user), user: user.toJSON() });
+    } catch (e) { next(e); }
 }
 
-export async function me(req, res) {
-  // Requiere middleware auth; payload queda en req.user
-  return res.json({ id: req.user?.sub || "u_1", email: req.user?.sub, role: req.user?.role || "user" });
+export async function me(req, res, next) {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) throw createError(404, "Usuario no encontrado");
+        res.json(user.toJSON());
+    } catch (e) { next(e); }
 }
