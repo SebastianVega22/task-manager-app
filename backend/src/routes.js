@@ -3,6 +3,10 @@ import * as Auth from "./controllers/auth.controller.js";
 import * as Project from "./controllers/project.controller.js";
 import * as Task from "./controllers/task.controller.js";
 import requireAuth from "./middlewares/auth.js";
+import * as Comment from "./controllers/comment.controller.js";
+import * as Activity from "./controllers/activity.controller.js";
+
+
 
 const r = Router();
 
@@ -23,5 +27,16 @@ r.get("/projects/:projectId/tasks", requireAuth, Task.list);
 r.post("/projects/:projectId/tasks", requireAuth, Task.create);
 r.put("/tasks/:id", requireAuth, Task.update);
 r.delete("/tasks/:id", requireAuth, Task.remove);
+
+// Comentarios por tarea
+r.get("/tasks/:taskId/comments", requireAuth, Comment.list);
+r.post("/tasks/:taskId/comments", requireAuth, Comment.create);
+r.delete("/comments/:id", requireAuth, Comment.remove);
+
+
+// Actividad
+r.get("/tasks/:taskId/activity", requireAuth, Activity.listByTask);
+r.get("/projects/:projectId/activity", requireAuth, Activity.listByProject);
+
 
 export default r;
